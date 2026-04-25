@@ -1,9 +1,9 @@
-using System.Text.Json;
 using EROptimizer.Core;
 using EROptimizer.Core.Backup;
 using EROptimizer.Core.Hardware;
 using EROptimizer.Core.Models;
 using EROptimizer.Core.Services;
+using Newtonsoft.Json;
 
 namespace EROptimizer.Cli;
 
@@ -227,11 +227,11 @@ internal static partial class Program
         Console.WriteLine($" CPU / GPU       : {MineConsoleUi.Shorten(hw.SummaryLine, 76)}");
         Console.WriteLine($" boot.config     : {MineConsoleUi.Shorten(boot, 72)}");
         Console.WriteLine(" 1. DNS          : displaydns → 로그 파일, 이어서 flush");
-        Console.WriteLine(" 2. 게임바/DVR   : 레지 끄고, 바꾸기 전 값은 registry_backup.json");
-        Console.WriteLine(" 3. GPU          : UserGpuPreferences = 2; (고성능 쪽)");
-        Console.WriteLine(" 4. 전원         : 고성능 있으면 갈아탐 / 없으면 묻지도 않고 스킵");
-        Console.WriteLine(" 5. TEMP         : %TEMP% 직속 파일만 삭제, 폴더는 그대로 둠");
-        Console.WriteLine(" 6. NV           : 지포스 있을 때만 JSON 뽑음 → 백업/files에만 저장 (드라이버엔 미적용)");
+        Console.WriteLine(" 2. 게임바/DVR   : 레지 비활성화, 이전 값 비활성화");
+        Console.WriteLine(" 3. GPU          : UserGpuPreferences = 2; (Windows 고성능)");
+        Console.WriteLine(" 4. 전원         : 고성능 있으면 전환 / 없으면 스킵");
+        Console.WriteLine(" 5. TEMP         : %TEMP% 직속 파일만 삭제, 폴더는 스킵");
+        Console.WriteLine(" 6. NV           : 지포스 있을 때만 JSON 뽑음 → 백업/files에만 저장 (드라이버는 미적용)");
         Console.WriteLine("12. boot.config  : 옵션 블록 합치기 + .bak, job-worker는 CPU 기준");
         Console.WriteLine($" 백업 폴더       : {MineConsoleUi.Shorten(backupDir, 72)}");
         Console.WriteLine($" 로그            : {MineConsoleUi.Shorten(logPath, 72)}");
@@ -265,7 +265,7 @@ internal static partial class Program
             SessionId = sessionId,
             Results = results.Select(r => new { r.Name, r.Success, r.Skipped, r.Message }).ToList()
         };
-        var json = JsonSerializer.Serialize(obj, new JsonSerializerOptions { WriteIndented = true });
+        var json = JsonConvert.SerializeObject(obj, Formatting.Indented);
         var path = Path.Combine(backupPath, "summary.json");
         File.WriteAllText(path, json);
         Console.WriteLine();

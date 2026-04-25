@@ -1,12 +1,12 @@
-using System.Text.Json;
 using EROptimizer.Core.Models;
+using Newtonsoft.Json;
 
 namespace EROptimizer.Core.Backup;
 
 public sealed class BackupSession
 {
     private readonly List<RegistryBackupEntry> _registry = new();
-    private readonly JsonSerializerOptions _json = new() { WriteIndented = true };
+    private static readonly JsonSerializerSettings JsonWrite = new() { Formatting = Formatting.Indented };
 
     public BackupSession(string rootDirectory, string sessionId)
     {
@@ -39,7 +39,7 @@ public sealed class BackupSession
 
     public void FlushRegistryJson()
     {
-        var json = JsonSerializer.Serialize(_registry, _json);
+        var json = JsonConvert.SerializeObject(_registry, JsonWrite);
         File.WriteAllText(RegistryJsonPath, json);
     }
 

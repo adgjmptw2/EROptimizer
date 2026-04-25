@@ -1,4 +1,3 @@
-using System.Text.Json;
 using EROptimizer.Core;
 using EROptimizer.Core.Backup;
 using EROptimizer.Core.Hardware;

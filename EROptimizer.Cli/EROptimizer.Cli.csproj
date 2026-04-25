@@ -17,21 +17,37 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Costura.Fody" Version="6.0.0">
+    <PackageReference Include="ILRepack" Version="2.0.18">
       <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>build</IncludeAssets>
     </PackageReference>
     <PackageReference Include="PolySharp" Version="1.14.1">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="System.Text.Json" Version="8.0.5" />
   </ItemGroup>
 
-  <Target Name="RemoveExtraPdbsAfterPublish" AfterTargets="Publish">
-    <ItemGroup>
-      <_PdbToDelete Include="$(PublishDir)*.pdb" />
-    </ItemGroup>
-    <Delete Files="@(_PdbToDelete)" TreatErrorsAsWarnings="true" />
+  <Target Name="IlRepackMergeRelease" AfterTargets="Build" Condition="'$(Configuration)'=='Release'">
+    <PropertyGroup>
+      <_Dir>$(TargetDir)</_Dir>
+      <_Packed>$(_Dir)EROptimizer.__packed.exe</_Packed>
+      <_Pre>$(_Dir)EROptimizer.__pre.exe</_Pre>
+      <_NetFxLib>$(MSBuildProgramFiles32)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8</_NetFxLib>
+    </PropertyGroup>
+    <Error Condition="!Exists('$(ILRepack)')" Text="ILRepack not found (restore packages)." />
+    <Error Condition="!Exists('$(_Dir)EROptimizer.Core.dll')" Text="EROptimizer.Core.dll missing before repack." />
+    <Error Condition="!Exists('$(_Dir)Newtonsoft.Json.dll')" Text="Newtonsoft.Json.dll missing before repack." />
+    <Error Condition="!Exists('$(_Dir)System.CodeDom.dll')" Text="System.CodeDom.dll missing before repack." />
+    <Message Importance="high" Text="ILRepack: merging Core + Newtonsoft.Json + System.CodeDom into EROptimizer.exe" />
+    <Exec Command="&quot;$(ILRepack)&quot; /parallel /wildcards /lib:&quot;$(_NetFxLib)&quot; /lib:&quot;$(_Dir.TrimEnd('\'))&quot; /out:&quot;$(_Packed)&quot; &quot;$(_Dir)EROptimizer.exe&quot; &quot;$(_Dir)EROptimizer.Core.dll&quot; &quot;$(_Dir)Newtonsoft.Json.dll&quot; &quot;$(_Dir)System.CodeDom.dll&quot;" />
+    <Move SourceFiles="$(_Dir)EROptimizer.exe" DestinationFiles="$(_Pre)" OverwriteReadOnlyFiles="true" />
+    <Move SourceFiles="$(_Packed)" DestinationFiles="$(_Dir)EROptimizer.exe" OverwriteReadOnlyFiles="true" />
+    <Delete Files="$(_Pre)" TreatErrorsAsWarnings="true" />
+    <Delete Files="$(_Dir)EROptimizer.Core.dll" TreatErrorsAsWarnings="true" />
+    <Delete Files="$(_Dir)Newtonsoft.Json.dll" TreatErrorsAsWarnings="true" />
+    <Delete Files="$(_Dir)System.CodeDom.dll" TreatErrorsAsWarnings="true" />
+    <Delete Files="$(_Dir)EROptimizer.Core.pdb" TreatErrorsAsWarnings="true" />
+    <Delete Files="$(_Dir)EROptimizer.__packed.exe.config" TreatErrorsAsWarnings="true" />
   </Target>
 
 </Project>

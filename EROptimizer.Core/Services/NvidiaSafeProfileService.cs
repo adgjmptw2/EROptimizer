@@ -1,9 +1,9 @@
 using System.Reflection;
-using System.Text.Json;
 using EROptimizer.Core.Backup;
 using EROptimizer.Core.Hardware;
 using EROptimizer.Core.Models;
 using EROptimizer.Core.Profiles;
+using Newtonsoft.Json;
 
 namespace EROptimizer.Core.Services;
 
@@ -11,6 +11,8 @@ public static class NvidiaSafeProfileService
 {
     private const string ExportFileName = "er_profile_safe_export.json";
     private const string EmbeddedLogicalName = "EROptimizer.Core.er_profile_backup.json";
+    private static readonly JsonSerializerSettings JsonRead = new() { MissingMemberHandling = MissingMemberHandling.Ignore };
+    private static readonly JsonSerializerSettings JsonWrite = new() { Formatting = Formatting.Indented };
 
     public static StepResult Export(string gameExePath, BackupSession backup, HardwareSnapshot hw, ErLog log)
     {
@@ -30,8 +32,7 @@ public static class NvidiaSafeProfileService
 
             var exeName = Path.GetFileName(gameExePath);
             var safe = NvidiaProfileSanitizer.Sanitize(embedded, exeName);
-            var opts = new JsonSerializerOptions { WriteIndented = true };
-            var json = JsonSerializer.Serialize(safe, opts);
+            var json = JsonConvert.SerializeObject(safe, JsonWrite);
             var outPath = Path.Combine(backup.FilesPath, ExportFileName);
             File.WriteAllText(outPath, json, new System.Text.UTF8Encoding(false));
             log.Info($"NV 프로필 JSON 저장: {outPath} (동기화·VRR·G-SYNC·주사율·FRTC·DLSS 강제 등 빼고 잘라냄)");
@@ -66,7 +67,7 @@ public static class NvidiaSafeProfileService
         using (var reader = new StreamReader(stream))
         {
             var text = reader.ReadToEnd();
-            return JsonSerializer.Deserialize<ErNvidiaProfileDoc>(text, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            return JsonConvert.DeserializeObject<ErNvidiaProfileDoc>(text, JsonRead);
         }
     }
 }

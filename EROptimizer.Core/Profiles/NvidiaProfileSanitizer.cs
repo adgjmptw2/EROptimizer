@@ -77,7 +77,6 @@ public static class NvidiaProfileSanitizer
                 return true;
         }
 
-        // DLSS: 오버라이드 해제(Value 0)만 유지, 성능 모드·배율 등 강제 값은 제외
         if (lower.Contains("dlss"))
         {
             if (s.Value == "0")

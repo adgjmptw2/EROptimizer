@@ -1,12 +1,17 @@
-using System.Text.Json;
 using EROptimizer.Core.Models;
 using Microsoft.Win32;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace EROptimizer.Core.Services;
 
 public static class BackupRestoreService
 {
-    private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNameCaseInsensitive = true };
+    private static readonly JsonSerializerSettings JsonRead = new()
+    {
+        MissingMemberHandling = MissingMemberHandling.Ignore,
+        NullValueHandling = NullValueHandling.Ignore
+    };
 
     public static IReadOnlyList<string> ListSessionPathsDescending(string workspaceRoot)
     {
@@ -23,7 +28,6 @@ public static class BackupRestoreService
         var files = Path.Combine(sessionPath, "files");
         if (!Directory.Exists(files))
             return Array.Empty<string>();
-        // 파일명에 세션 타임스탬프가 붙으므로 오름차순 = 가장 이른 백업이 [0]
         return Directory.GetFiles(files, "boot.config.bak_*")
             .OrderBy(static f => f, StringComparer.Ordinal)
             .ToList();
@@ -40,7 +44,7 @@ public static class BackupRestoreService
         try
         {
             var text = File.ReadAllText(jsonPath);
-            entries = JsonSerializer.Deserialize<List<RegistryBackupEntry>>(text, JsonOpts);
+            entries = JsonConvert.DeserializeObject<List<RegistryBackupEntry>>(text, JsonRead);
         }
         catch (Exception ex)
         {
@@ -181,16 +185,22 @@ public static class BackupRestoreService
         if (v == null) return true;
         if (v is string s)
             return s is "(없음)" or "(none)" || string.IsNullOrWhiteSpace(s);
-        if (v is JsonElement je && je.ValueKind == JsonValueKind.String)
-            return je.GetString() is "(없음)" or "(none)" or null or "";
+        if (v is JValue jv && jv.Type == JTokenType.String)
+        {
+            var t = jv.Value<string>();
+            return t is "(없음)" or "(none)" || string.IsNullOrWhiteSpace(t);
+        }
         return false;
     }
 
     private static string? CoerceString(object? v)
     {
         if (v is string s) return s;
-        if (v is JsonElement je && je.ValueKind == JsonValueKind.String)
-            return je.GetString();
+        if (v is JValue jv)
+        {
+            if (jv.Type == JTokenType.String) return jv.Value<string>();
+            return jv.ToString();
+        }
         return v?.ToString();
     }
 
@@ -199,11 +209,11 @@ public static class BackupRestoreService
         switch (v)
         {
             case int i: return i;
-            case long l: return (int)l;
-            case JsonElement je:
-                if (je.ValueKind == JsonValueKind.Number && je.TryGetInt32(out var n))
-                    return n;
-                if (je.ValueKind == JsonValueKind.String && int.TryParse(je.GetString(), out var p))
+            case long l: return checked((int)l);
+            case JValue jv:
+                if (jv.Type == JTokenType.Integer) return jv.Value<int>();
+                if (jv.Type == JTokenType.Float) return (int)jv.Value<double>();
+                if (jv.Type == JTokenType.String && int.TryParse(jv.Value<string>(), out var p))
                     return p;
                 return null;
             default:

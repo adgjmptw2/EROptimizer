@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+using Newtonsoft.Json;
 
 namespace EROptimizer.Core.Profiles;
 
@@ -15,6 +15,6 @@ public sealed class ErNvidiaProfileSetting
     public string? SettingName { get; set; }
     public string SettingType { get; set; } = "Integer";
     public string Value { get; set; } = "";
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public object? BinaryValue { get; set; }
 }
