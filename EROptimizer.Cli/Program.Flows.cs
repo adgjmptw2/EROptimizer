@@ -1,5 +1,6 @@
 using EROptimizer.Core;
 using EROptimizer.Core.Backup;
+using EROptimizer.Core.Diagnostics;
 using EROptimizer.Core.Hardware;
 using EROptimizer.Core.Models;
 using EROptimizer.Core.Services;
@@ -63,6 +64,8 @@ internal static partial class Program
         var hw = HardwareProbe.Probe();
         log.Info(hw.SummaryLine);
 
+        var pre = SystemDiagnosisProbe.Collect(exe);
+        MineConsoleUi.PrintSystemDiagnosis("현재 진단 결과", pre);
         PrintPackageSummary(exe, workspace, sessionId, hw);
         if (MineConsoleUi.PromptLine("적용하고 백업을 만듭니다. 계속? (Y/N) : ")?.Trim().ToUpperInvariant() != "Y")
         {
@@ -89,6 +92,12 @@ internal static partial class Program
         PrintResultsTable(results);
         SaveSummary(backup.SessionPath, sessionId, results);
         log.Info($"패키지 작업 완료 session={sessionId}");
+
+        var post = SystemDiagnosisProbe.Collect(exe);
+        MineConsoleUi.PrintSystemDiagnosis("적용 후 재진단 (변경·수동 점검)", post);
+        var nvAdapter = post.Adapters.FirstOrDefault(a => a.Name.IndexOf("NVIDIA", StringComparison.OrdinalIgnoreCase) >= 0);
+        var gfeInfo = nvAdapter != null ? NvidiaGfeDriverLookup.TryGetLatestGeForceDriverInfo(nvAdapter) : null;
+        MineConsoleUi.PrintAdapterDriversAndNotes(post, gfeInfo);
     }
 
     private static void RunBootConfigOnly(string workspace, string exe, ErLog log)

@@ -1,5 +1,6 @@
 using System.Threading;
 using EROptimizer.Core;
+using EROptimizer.Core.Diagnostics;
 
 namespace EROptimizer.Cli;
 
@@ -174,5 +175,106 @@ internal static class MineConsoleUi
         Console.ForegroundColor = ConsoleColor.Cyan;
         Console.WriteLine(text);
         Console.ResetColor();
+    }
+
+    public static void PrintSystemDiagnosis(string title, SystemDiagnosisResult d)
+    {
+        Console.WriteLine();
+        PrintBar('-');
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine(" " + title);
+        Console.ResetColor();
+        PrintBar('-');
+        DiagnosisLine("Game Bar", d.GameBarOk, d.GameBarDetail);
+        DiagnosisLine("Game DVR", d.GameDvrOk, d.GameDvrDetail);
+        DiagnosisLine("전원 계획", d.PowerHighPerformance, d.PowerDetail);
+        DiagnosisLine("Eternal Return GPU 설정", d.GameGpuHighPerformance, d.GameGpuDetail);
+        DiagnosisLine("boot.config", d.BootConfigOk, d.BootConfigDetail);
+        DiagnosisLine("TEMP 용량", d.TempDriveEnoughSpace, d.TempSpaceDetail);
+        PrintBar('-');
+    }
+
+    private static void DiagnosisLine(string label, bool ok, string detail)
+    {
+        WritePassFailIcon(ok);
+        Console.ForegroundColor = ConsoleColor.DarkGray;
+        var tail = string.IsNullOrEmpty(detail) ? "" : ": " + detail;
+        Console.WriteLine(" " + label + tail);
+        Console.ResetColor();
+    }
+
+    private static void WritePassFailIcon(bool ok)
+    {
+        if (ok)
+        {
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.Write("✔ ");
+        }
+        else
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.Write("❌ ");
+        }
+        Console.ResetColor();
+    }
+
+    public static void PrintAdapterDriversAndNotes(SystemDiagnosisResult d, NvidiaGfeLatestInfo? gfe)
+    {
+        Console.WriteLine();
+        PrintBar('=');
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine(" 그래픽 드라이버");
+        Console.ResetColor();
+        PrintBar('=');
+        if (d.Adapters.Count == 0)
+        {
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine(" 표시 어댑터 없음(WMI).");
+            Console.ResetColor();
+        }
+        else
+        {
+            for (var i = 0; i < d.Adapters.Count; i++)
+            {
+                var a = d.Adapters[i];
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.WriteLine(" [" + (i + 1) + "] " + Shorten(a.Name, 72));
+                var ver = string.IsNullOrEmpty(a.DriverVersion) ? "?" : a.DriverVersion;
+                var tail = string.IsNullOrEmpty(a.DriverDate) ? "" : "  (" + a.DriverDate + ")";
+                Console.WriteLine("     드라이버: " + ver + tail);
+            }
+        }
+
+        var nvidia = d.Adapters.Any(x => x.Name.IndexOf("NVIDIA", StringComparison.OrdinalIgnoreCase) >= 0);
+        var nv = d.Adapters.FirstOrDefault(x => x.Name.IndexOf("NVIDIA", StringComparison.OrdinalIgnoreCase) >= 0);
+        if (nvidia && nv != null)
+        {
+            if (gfe is { Version: { Length: > 0 } v })
+            {
+                var cmp = NvidiaDriverVersionCompare.Compare(v, nv.DriverVersion);
+                var gfeTail = string.IsNullOrEmpty(gfe.ReleaseDate) ? "" : "  (" + gfe.ReleaseDate + ")";
+                if (cmp < 0)
+                {
+                    Console.WriteLine("     GFE 조회: " + v + gfeTail + " — 설치(" + nv.DriverVersion + ")보다 낮음 (조회·카드 ID 불일치 가능). 최신 GRD는 nvidia.com/drivers");
+                }
+                else
+                    Console.WriteLine("     GFE 최신: " + v + gfeTail);
+            }
+            else
+                Console.WriteLine("     GFE 최신: (조회 실패 — nvidia.com 또는 GeForce Experience)");
+        }
+        else
+            Console.WriteLine(" 최신 드라이버: AMD / Intel 각각 공식 지원 페이지에서 OS에 맞게 설치.");
+
+        if (d.TempDriveEnoughSpace is false)
+        {
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine(" 참고: TEMP 드라이브 여유가 부족합니다. 위 진단의 TEMP 항목을 확인하세요.");
+            Console.ResetColor();
+        }
+        Console.ForegroundColor = ConsoleColor.DarkGray;
+        Console.WriteLine(" (설치 버전=nvidia-smi / GFE는 비공식 API·공식 사이트·배포 채널과 어긋날 수 있음)");
+        Console.ResetColor();
+        PrintBar('=');
     }
 }
