@@ -28,7 +28,9 @@ internal static partial class Program
 
             while (true)
             {
-                var discovery = SteamGameLocator.DiscoverDetailed();
+                var discovery = MineConsoleUi.RunWithWait(
+                    "이터널 리턴 설치 경로 탐색 중",
+                    () => SteamGameLocator.DiscoverDetailed());
                 MineConsoleUi.PrintDiscoveryFlow(discovery);
                 if (discovery.IsComplete)
                     gameExe = discovery.GameExePath;
@@ -46,25 +48,28 @@ internal static partial class Program
                         RunFullPackage(workspace, gameExe!, log);
                         break;
                     case "2":
-                        if (!EnsureGameExe(ref gameExe, discovery))
-                            break;
-                        RunBootConfigOnly(workspace, gameExe!, log);
+                        RunStorageCleanupMenu(workspace, discovery, log, appSession);
                         break;
                     case "3":
                         if (!EnsureGameExe(ref gameExe, discovery))
                             break;
-                        RunFullRestoreFromBackup(workspace, gameExe!, log);
+                        RunBootConfigOnly(workspace, gameExe!, log);
                         break;
                     case "4":
                         if (!EnsureGameExe(ref gameExe, discovery))
                             break;
-                        RunBootRestoreFromBackup(workspace, gameExe!, log);
+                        RunFullRestoreFromBackup(workspace, gameExe!, log);
                         break;
                     case "5":
+                        if (!EnsureGameExe(ref gameExe, discovery))
+                            break;
+                        RunBootRestoreFromBackup(workspace, gameExe!, log);
+                        break;
+                    case "6":
                         gameExe = null;
                         MineConsoleUi.PrintBanner();
                         continue;
-                    case "6":
+                    case "7":
                         ResolveManualExe(ref gameExe);
                         break;
                     case "Q":
@@ -72,7 +77,7 @@ internal static partial class Program
                         return exitCode;
                     default:
                         Console.ForegroundColor = ConsoleColor.Yellow;
-                        Console.WriteLine("1~6 또는 Q 를 입력하세요.");
+                        Console.WriteLine("1~7 또는 Q 를 입력하세요.");
                         Console.ResetColor();
                         break;
                 }

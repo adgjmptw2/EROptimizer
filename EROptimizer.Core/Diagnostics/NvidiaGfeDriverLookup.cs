@@ -23,7 +23,6 @@ public static class NvidiaGfeDriverLookup
     private static readonly string[] FallbackDesktopSample = ["1B80_10DE_119E_10DE"];
     private static readonly string[] FallbackNotebookSample = ["1BE0_10DE"];
 
-    /// <param name="nvidiaAdapter">첫 NVIDIA 어댑터(PNPDeviceID로 실제 PCI 문자열 구성). null이면 샘플 ID만 사용.</param>
     public static NvidiaGfeLatestInfo? TryGetLatestGeForceDriverInfo(DisplayAdapterInfo? nvidiaAdapter)
     {
         try

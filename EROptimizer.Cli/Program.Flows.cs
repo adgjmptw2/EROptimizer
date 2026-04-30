@@ -21,7 +21,7 @@ internal static partial class Program
         }
 
         Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.WriteLine("실행 파일이 없습니다. [6]으로 먼저 지정하세요.");
+        Console.WriteLine("실행 파일이 없습니다. [7]으로 먼저 지정하세요.");
         Console.ResetColor();
         return false;
     }

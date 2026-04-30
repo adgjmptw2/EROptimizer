@@ -4,7 +4,6 @@ namespace EROptimizer.Core.Diagnostics;
 
 public static class ChassisHelper
 {
-    /// <summary>노트북/슬레이트 등 이동형(Win32: PCSystemType=2)이면 true.</summary>
     public static bool IsNotebookChassis()
     {
         try
