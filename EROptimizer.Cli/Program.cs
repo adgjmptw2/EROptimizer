@@ -8,6 +8,8 @@ namespace EROptimizer.Cli;
 
 internal static partial class Program
 {
+    private static bool s_suppressFinalWaitExit;
+
     [STAThread]
     private static int Main()
     {
@@ -43,7 +45,13 @@ internal static partial class Program
                     case "1":
                         if (!EnsureGameExe(ref gameExe, discovery))
                             break;
-                        RunFullPackage(workspace, gameExe!, log);
+                        if (RunFullPackage(workspace, gameExe!, log))
+                        {
+                            s_suppressFinalWaitExit = true;
+                            MineConsoleUi.ShowOptimizationCompleteExitPrompt();
+                            return exitCode;
+                        }
+
                         break;
                     case "2":
                         if (!EnsureGameExe(ref gameExe, discovery))
@@ -56,15 +64,21 @@ internal static partial class Program
                         RunFullRestoreFromBackup(workspace, gameExe!, log);
                         break;
                     case "4":
+                        RunMonitorRefreshMenu();
+                        break;
+                    case "5":
+                        RunOverlayProcessMenu();
+                        break;
+                    case "6":
                         if (!EnsureGameExe(ref gameExe, discovery))
                             break;
                         RunBootRestoreFromBackup(workspace, gameExe!, log);
                         break;
-                    case "5":
+                    case "7":
                         gameExe = null;
                         MineConsoleUi.PrintBanner();
                         continue;
-                    case "6":
+                    case "8":
                         ResolveManualExe(ref gameExe);
                         break;
                     case "Q":
@@ -72,7 +86,7 @@ internal static partial class Program
                         return exitCode;
                     default:
                         Console.ForegroundColor = ConsoleColor.Yellow;
-                        Console.WriteLine("1~6 또는 Q 를 입력하세요.");
+                        Console.WriteLine("1~8 또는 Q 를 입력하세요.");
                         Console.ResetColor();
                         break;
                 }
@@ -88,7 +102,8 @@ internal static partial class Program
         }
         finally
         {
-            WaitExit();
+            if (!s_suppressFinalWaitExit)
+                WaitExit();
         }
 
         return exitCode;

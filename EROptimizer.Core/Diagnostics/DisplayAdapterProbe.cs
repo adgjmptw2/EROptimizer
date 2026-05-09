@@ -17,7 +17,7 @@ public static class DisplayAdapterProbe
                 var name = mo["Name"]?.ToString()?.Trim();
                 if (string.IsNullOrEmpty(name))
                     continue;
-                if (name.Contains("Basic Render Driver", StringComparison.OrdinalIgnoreCase))
+                if (name!.Contains("Basic Render Driver", StringComparison.OrdinalIgnoreCase))
                     continue;
                 var dv = mo["DriverVersion"]?.ToString() ?? "";
                 var rawDd = mo["DriverDate"]?.ToString();

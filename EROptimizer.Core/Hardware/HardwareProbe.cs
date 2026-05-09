@@ -40,7 +40,7 @@ public static class HardwareProbe
                 using var mo = (ManagementObject)o;
                 var n = mo["Name"]?.ToString();
                 if (!string.IsNullOrWhiteSpace(n))
-                    adapters.Add(n.Trim());
+                    adapters.Add(n!.Trim());
             }
         }
         catch

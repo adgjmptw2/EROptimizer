@@ -13,7 +13,7 @@ public static class SteamGameLocator
         using var key = Registry.CurrentUser.OpenSubKey(@"Software\Valve\Steam");
         var v = key?.GetValue("SteamPath") as string;
         if (string.IsNullOrWhiteSpace(v)) return null;
-        return v.Replace('/', Path.DirectorySeparatorChar).TrimEnd(Path.DirectorySeparatorChar);
+        return v!.Replace('/', Path.DirectorySeparatorChar).TrimEnd(Path.DirectorySeparatorChar);
     }
 
     public static IReadOnlyList<string> EnumerateSteamAppsRoots(string steamRoot)
@@ -55,7 +55,7 @@ public static class SteamGameLocator
         if (string.IsNullOrEmpty(steam)) return null;
 
         var acfName = $"appmanifest_{ErConstants.SteamAppId}.acf";
-        foreach (var apps in EnumerateSteamAppsRoots(steam))
+        foreach (var apps in EnumerateSteamAppsRoots(steam!))
         {
             var acf = Path.Combine(apps, acfName);
             var installdir = TryReadInstallDirFromAcf(acf);

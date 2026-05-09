@@ -73,7 +73,7 @@ public static class BootConfigMerger
             if (!presetKeySet.Contains(k) && finalVals.TryGetValue(k, out var val))
                 outLines.Add($"{k}={val}");
         }
-        outLines.Add(buildLine.TrimEnd(new[] { '\r' }));
+        outLines.Add(buildLine!.TrimEnd(new[] { '\r' }));
         var text = string.Join("\n", outLines) + "\n";
         return (true, "병합 완료", text);
     }

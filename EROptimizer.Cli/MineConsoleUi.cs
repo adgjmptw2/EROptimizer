@@ -1,3 +1,4 @@
+using System.IO;
 using System.Threading;
 using EROptimizer.Core;
 using EROptimizer.Core.Diagnostics;
@@ -74,14 +75,14 @@ internal static class MineConsoleUi
         Console.ForegroundColor = ConsoleColor.Cyan;
         Console.Write("이터널 리턴");
         Console.ForegroundColor = ConsoleColor.DarkGray;
-        Console.WriteLine(" 설치 폴더를 찾는 중입니다 . . .");
+        Console.WriteLine(" 설치 폴더를 찾는 중입니다...");
         Thread.Sleep(stepDelayMs);
 
         if (!string.IsNullOrEmpty(d.SteamRoot))
         {
             Console.ForegroundColor = ConsoleColor.DarkGray;
             Console.Write("   - 스팀 설치 경로 확인 : ");
-            WriteGreenLine(Shorten(d.SteamRoot, PathMaxConsole));
+            WriteGreenLine(Shorten(d.SteamRoot!, PathMaxConsole));
         }
         else
         {
@@ -96,7 +97,7 @@ internal static class MineConsoleUi
         {
             Console.ForegroundColor = ConsoleColor.DarkGray;
             Console.Write("   - 이터널 리턴 설치 폴더 확인 : ");
-            WriteGreenLine(Shorten(d.InstallDirectory, PathMaxConsole));
+            WriteGreenLine(Shorten(d.InstallDirectory!, PathMaxConsole));
         }
         else
         {
@@ -116,7 +117,7 @@ internal static class MineConsoleUi
         else
         {
             Console.ForegroundColor = ConsoleColor.DarkYellow;
-            Console.WriteLine("   - 실행 파일 확인 : (자동 탐색 실패 — 메뉴 [6]에서 수동 지정)");
+            Console.WriteLine("   - 실행 파일 확인 : (자동 탐색 실패 — 메뉴 [8]에서 수동 지정)");
             Console.ResetColor();
         }
 
@@ -130,9 +131,11 @@ internal static class MineConsoleUi
         Console.WriteLine("[1] 기본 패키지 적용  (DNS, 게임바, GPU, 전원, TEMP, NV JSON, boot.config)");
         Console.WriteLine("[2] boot.config만 패치");
         Console.WriteLine("[3] 백업 버전 재적용  (레지·전원·boot.config)");
-        Console.WriteLine("[4] boot.config만 백업 불러오기");
-        Console.WriteLine("[5] 설치 경로 다시 스캔");
-        Console.WriteLine("[6] 실행 파일 수동 지정 (경로 입력 / 파일 선택)");
+        Console.WriteLine("[4] 모니터 주사율 점검  (읽기 전용)");
+        Console.WriteLine("[5] 오버레이·녹화·런처 점검  (감지만)");
+        Console.WriteLine("[6] boot.config만 백업 불러오기");
+        Console.WriteLine("[7] 설치 경로 다시 스캔");
+        Console.WriteLine("[8] 실행 파일 수동 지정 (경로 입력 / 파일 선택)");
         Console.ForegroundColor = ConsoleColor.DarkGray;
         Console.WriteLine("[Q] 종료");
         Console.ResetColor();
@@ -144,6 +147,51 @@ internal static class MineConsoleUi
         Console.Write(label);
         Console.ResetColor();
         return Console.ReadLine();
+    }
+
+    public static void ShowOptimizationCompleteExitPrompt()
+    {
+        Console.WriteLine();
+        PrintBar('-');
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine(" 최적화가 완료되었습니다. 즐거운 루미아섬 여행 되세요! ! !");
+        Console.ResetColor();
+        PrintBar('-');
+        Console.WriteLine();
+        Console.ForegroundColor = ConsoleColor.DarkGray;
+        Console.WriteLine(" 아무 키나 누르면 종료됩니다.");
+        Console.ResetColor();
+        try
+        {
+            if (Console.IsInputRedirected)
+                PromptLine("종료하려면 Enter… ");
+            else
+                Console.ReadKey(intercept: true);
+        }
+        catch (InvalidOperationException)
+        {
+            PromptLine("종료하려면 Enter… ");
+        }
+    }
+
+    public static void PrintAdditionalDiagnosticsOffer(string workspace)
+    {
+        var logsDir = Path.Combine(workspace, "logs");
+        Console.WriteLine();
+        PrintBar('-');
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine(" [ 추가 진단 ]  Y 를 누르면 아래를 한 번 더 읽습니다.");
+        Console.ResetColor();
+        PrintBar('-');
+        Console.WriteLine("  - 그래픽 드라이버(WMI): 어댑터 이름·설치 버전·날짜, DriverDate 참고 문구");
+        Console.WriteLine("  - 기본 디스플레이 현재 주사율 / 가능한 주사율 후보 (읽기 전용)");
+        Console.WriteLine("  - Discord, Steam, Xbox Game Bar, NVIDIA 공유 등 점검 대상 프로세스");
+        Console.WriteLine("    (실행 여부, CPU 약 1초 샘플, RAM Working Set 합산)");
+        Console.ForegroundColor = ConsoleColor.DarkGray;
+        Console.WriteLine($"  - 저장: {Shorten(logsDir + Path.DirectorySeparatorChar, 52)}diagnostic_<시간>.log");
+        Console.WriteLine("          + diagnostic_result_<시간>.json");
+        Console.ResetColor();
+        PrintBar('-');
     }
 
     private const int PathMaxConsole = 68;
@@ -218,63 +266,260 @@ internal static class MineConsoleUi
         Console.ResetColor();
     }
 
-    public static void PrintAdapterDriversAndNotes(SystemDiagnosisResult d, NvidiaGfeLatestInfo? gfe)
+    public static void WriteDiagnosticProgress(string message, int percent)
+    {
+        if (percent < 0) percent = 0;
+        else if (percent > 100) percent = 100;
+        const int w = 10;
+        var f = (int)Math.Round(w * (percent / 100.0));
+        if (f > w) f = w;
+        var bar = new string('#', f) + new string('-', w - f);
+        var line = $"{message} [{bar}] {percent}%";
+        Console.ForegroundColor = ConsoleColor.DarkCyan;
+        Console.Write("\r" + line);
+        try
+        {
+            var cw = Console.WindowWidth;
+            if (cw > 1 && line.Length < cw - 1)
+                Console.Write(new string(' ', Math.Min(24, cw - 1 - line.Length)));
+        }
+        catch
+        {
+            /* */
+        }
+
+        Console.ResetColor();
+    }
+
+    public static void ClearDiagnosticProgressLine()
+    {
+        try
+        {
+            var w = Console.WindowWidth;
+            if (w > 1)
+                Console.Write("\r" + new string(' ', w - 1) + "\r");
+            else
+                Console.Write("\r" + new string(' ', 96) + "\r");
+        }
+        catch
+        {
+            Console.Write("\r" + new string(' ', 96) + "\r");
+        }
+    }
+
+    private static void WriteMonitorCurrentHzLine(int currentHz)
+    {
+        Console.ForegroundColor = ConsoleColor.DarkGray;
+        Console.Write("    - 현재 주사율 : ");
+        Console.ResetColor();
+        if (currentHz > 0)
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.Write(currentHz);
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine(" Hz");
+            Console.ResetColor();
+        }
+        else
+        {
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine("확인 불가");
+            Console.ResetColor();
+        }
+    }
+
+    private static void WriteMonitorCandidatesHzLine(int currentHz, IReadOnlyList<int> candidates, string plainFallback)
+    {
+        Console.ForegroundColor = ConsoleColor.DarkGray;
+        Console.Write("    - 감지 후보   : ");
+        Console.ResetColor();
+        if (candidates == null || candidates.Count == 0)
+        {
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine(string.IsNullOrEmpty(plainFallback) ? "확인 불가" : plainFallback);
+            Console.ResetColor();
+            return;
+        }
+
+        for (var i = 0; i < candidates.Count; i++)
+        {
+            var hz = candidates[i];
+            if (i > 0)
+            {
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.Write(" / ");
+                Console.ResetColor();
+            }
+
+            var isActive = currentHz > 0 && hz == currentHz;
+            Console.ForegroundColor = isActive ? ConsoleColor.Green : ConsoleColor.DarkGray;
+            Console.Write($"{hz}Hz");
+            Console.ResetColor();
+        }
+
+        Console.WriteLine();
+    }
+
+    public static void PrintPostApplyDiagnosticSummary(PostApplyDiagnosticReport r)
     {
         Console.WriteLine();
-        PrintBar('=');
+        PrintBar('-');
         Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine(" 그래픽 드라이버");
+        Console.WriteLine(" [ 추가 진단 요약 ]");
         Console.ResetColor();
-        PrintBar('=');
-        if (d.Adapters.Count == 0)
-        {
-            Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.WriteLine(" 표시 어댑터 없음(WMI).");
-            Console.ResetColor();
-        }
-        else
-        {
-            for (var i = 0; i < d.Adapters.Count; i++)
-            {
-                var a = d.Adapters[i];
-                Console.ForegroundColor = ConsoleColor.DarkGray;
-                Console.WriteLine(" [" + (i + 1) + "] " + Shorten(a.Name, 72));
-                var ver = string.IsNullOrEmpty(a.DriverVersion) ? "?" : a.DriverVersion;
-                var tail = string.IsNullOrEmpty(a.DriverDate) ? "" : "  (" + a.DriverDate + ")";
-                Console.WriteLine("     드라이버: " + ver + tail);
-            }
-        }
+        PrintBar('-');
+        Console.WriteLine();
+        PrintGraphicsDriverCheck(r.Gpus);
 
-        var nvidia = d.Adapters.Any(x => x.Name.IndexOf("NVIDIA", StringComparison.OrdinalIgnoreCase) >= 0);
-        var nv = d.Adapters.FirstOrDefault(x => x.Name.IndexOf("NVIDIA", StringComparison.OrdinalIgnoreCase) >= 0);
-        if (nvidia && nv != null)
-        {
-            if (gfe is { Version: { Length: > 0 } v })
-            {
-                var cmp = NvidiaDriverVersionCompare.Compare(v, nv.DriverVersion);
-                var gfeTail = string.IsNullOrEmpty(gfe.ReleaseDate) ? "" : "  (" + gfe.ReleaseDate + ")";
-                if (cmp < 0)
-                {
-                    Console.WriteLine("     GFE 조회: " + v + gfeTail + " — 설치(" + nv.DriverVersion + ")보다 낮음 (조회·카드 ID 불일치 가능). 최신 GRD는 nvidia.com/drivers");
-                }
-                else
-                    Console.WriteLine("     GFE 최신: " + v + gfeTail);
-            }
-            else
-                Console.WriteLine("     GFE 최신: (조회 실패 — nvidia.com 또는 GeForce Experience)");
-        }
-        else
-            Console.WriteLine(" 최신 드라이버: AMD / Intel 각각 공식 지원 페이지에서 OS에 맞게 설치.");
+        Console.WriteLine();
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine(" >> 모니터 (기본 디스플레이, 자동 변경 없음)");
+        Console.ResetColor();
+        WriteMonitorCurrentHzLine(r.MonitorCurrentHz);
+        WriteMonitorCandidatesHzLine(r.MonitorCurrentHz, r.MonitorCandidateHz, r.MonitorCandidatesText);
+        Console.ForegroundColor = ConsoleColor.DarkCyan;
+        Console.WriteLine("    - 판단        : " + r.MonitorJudgment);
+        Console.ResetColor();
 
-        if (d.TempDriveEnoughSpace is false)
-        {
-            Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.WriteLine(" 참고: TEMP 드라이브 여유가 부족합니다. 위 진단의 TEMP 항목을 확인하세요.");
-            Console.ResetColor();
-        }
+        PrintOverlayInspectionReport(r.Overlays);
+    }
+
+    public static void PrintGraphicsDriverCheck(IReadOnlyList<GpuDiagnosticRow> gpus)
+    {
+        Console.WriteLine();
+        PrintBar('-');
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine(" 그래픽 드라이버 점검");
+        Console.ResetColor();
         Console.ForegroundColor = ConsoleColor.DarkGray;
-        Console.WriteLine(" (설치 버전=nvidia-smi / GFE는 비공식 API·공식 사이트·배포 채널과 어긋날 수 있음)");
+        Console.WriteLine(" 인터넷으로 최신 버전을 확인하지 않고, 현재 설치된 드라이버 날짜만 확인합니다.");
         Console.ResetColor();
-        PrintBar('=');
+        if (gpus.Count == 0)
+        {
+            Console.WriteLine();
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine(" (표시할 어댑터 없음)");
+            Console.ResetColor();
+            PrintBar('-');
+            return;
+        }
+
+        foreach (var g in gpus)
+        {
+            var dt = DriverAgeEvaluator.TryParseDriverDateYyyyMmDd(g.DriverDate);
+            var guide = DriverAgePresentation.GuidanceText(dt, g.DriverAgeReference);
+            Console.WriteLine();
+            Console.ForegroundColor = ConsoleColor.Gray;
+            Console.WriteLine("- " + g.Name);
+            Console.ResetColor();
+            Console.WriteLine("  드라이버: " + (string.IsNullOrEmpty(g.DriverVersion) ? "?" : g.DriverVersion));
+            Console.WriteLine("  설치 날짜: " + (string.IsNullOrEmpty(g.DriverDate) ? "확인 불가" : g.DriverDate));
+            Console.WriteLine("  상태: " + g.DriverAgeReference);
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine("  안내: " + guide);
+            Console.ResetColor();
+        }
+
+        PrintBar('-');
+    }
+
+    public static void PrintOverlayInspectionReport(IReadOnlyList<OverlayAppSnapshot> rows)
+    {
+        Console.WriteLine();
+        PrintBar('-');
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine(" 오버레이 / 녹화 / 런처 점검");
+        Console.ResetColor();
+        Console.ForegroundColor = ConsoleColor.DarkGray;
+        Console.WriteLine(" 자동 종료하지 않습니다. 실행 여부와 사용량만 확인합니다.");
+        Console.ResetColor();
+
+        var running = rows.Where(static x => x.Running).ToList();
+        var notRunning = rows.Where(static x => !x.Running).Select(static x => x.Label).ToList();
+
+        Console.WriteLine();
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine(" 실행 중");
+        Console.ResetColor();
+        if (running.Count == 0)
+        {
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine(" (없음)");
+            Console.ResetColor();
+        }
+        else
+        {
+            foreach (var o in running)
+            {
+                var mb = (int)(o.RamBytes / (1024 * 1024));
+                var hint = OverlayHintForLabel(o.Label);
+                Console.WriteLine(
+                    $"- {o.Label,-14} CPU {o.CpuPercentApprox}%   RAM {mb} MB   {hint}");
+            }
+        }
+
+        Console.WriteLine();
+        Console.ForegroundColor = ConsoleColor.DarkGray;
+        Console.WriteLine(" 실행 안 함");
+        Console.ResetColor();
+        if (notRunning.Count == 0)
+            Console.WriteLine(" (없음)");
+        else
+            Console.WriteLine("- " + string.Join(", ", notRunning));
+
+        var totalRamGb = running.Sum(static o => o.RamBytes) / (1024.0 * 1024.0 * 1024.0);
+        var totalCpu = running.Sum(static o => o.CpuPercentApprox);
+        Console.WriteLine();
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine(
+            $" 요약: 실행 중 {running.Count}개 / 총 RAM {totalRamGb.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)} GB / 총 CPU {totalCpu.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)}%");
+        Console.ResetColor();
+        PrintBar('-');
+    }
+
+    private static string OverlayHintForLabel(string label)
+    {
+        if (string.IsNullOrEmpty(label)) return "";
+        if (label.StartsWith("Discord", StringComparison.OrdinalIgnoreCase))
+            return "음성/오버레이 사용 시 영향 가능";
+        if (label.StartsWith("Steam", StringComparison.OrdinalIgnoreCase))
+            return "Steam 오버레이 확인 권장";
+        if (label.IndexOf("Xbox", StringComparison.OrdinalIgnoreCase) >= 0)
+            return "게임 바·캡처가 켜져 있으면 확인";
+        if (label.StartsWith("NVIDIA", StringComparison.OrdinalIgnoreCase))
+            return "녹화/오버레이 확인 권장";
+        if (label.StartsWith("OBS", StringComparison.OrdinalIgnoreCase))
+            return "방송/녹화 시 부하 가능";
+        if (label.StartsWith("Overwolf", StringComparison.OrdinalIgnoreCase))
+            return "게임 오버레이 앱";
+        if (label.StartsWith("Medal", StringComparison.OrdinalIgnoreCase))
+            return "클립/녹화 앱";
+        if (label.StartsWith("Razer", StringComparison.OrdinalIgnoreCase))
+            return "장치 소프트웨어";
+        if (label.StartsWith("Logitech", StringComparison.OrdinalIgnoreCase))
+            return "장치 소프트웨어";
+        if (label.StartsWith("SteelSeries", StringComparison.OrdinalIgnoreCase))
+            return "장치 소프트웨어";
+        return "";
+    }
+
+    public static void PrintMonitorRefreshCheck(DisplayRefreshInfo d)
+    {
+        Console.WriteLine();
+        PrintBar('-');
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine(" 모니터 주사율 점검");
+        Console.ResetColor();
+        PrintBar('-');
+        Console.ForegroundColor = ConsoleColor.DarkGray;
+        Console.WriteLine(" 기본 디스플레이 · 읽기 전용 · 자동 변경 없음");
+        Console.ResetColor();
+        WriteMonitorCurrentHzLine(d.CurrentHz);
+        WriteMonitorCandidatesHzLine(d.CurrentHz, d.CandidateHz,
+            d.CandidateHz.Count > 0 ? "" : "확인 불가");
+        Console.ForegroundColor = ConsoleColor.DarkCyan;
+        Console.WriteLine("    - 판단        : " + d.DetailNote);
+        Console.ResetColor();
+        PrintBar('-');
     }
 }

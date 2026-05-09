@@ -21,7 +21,7 @@ public static class PowerPlanService
             var activeGuid = GuidRegex.Matches(active).Cast<Match>().FirstOrDefault()?.Value;
             if (!string.IsNullOrEmpty(activeGuid))
             {
-                backup.WritePowerPlanBackup(activeGuid);
+                backup.WritePowerPlanBackup(activeGuid!);
                 log.Info($"활성 전원 GUID 백업: {activeGuid}");
             }
 

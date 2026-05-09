@@ -4,6 +4,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EROptimizer.Core", "EROptimizer.Core\EROptimizer.Core.csproj", "{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EROptimizer.Cli", "EROptimizer.Cli\EROptimizer.Cli.csproj", "{B2C3D4E5-F678-90AB-CDEF-123456789012}"
+	ProjectSection(ProjectDependencies) = postProject
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890} = {A1B2C3D4-E5F6-7890-ABCD-EF1234567890}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

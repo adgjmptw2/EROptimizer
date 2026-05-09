@@ -21,7 +21,7 @@ internal static partial class Program
         }
 
         Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.WriteLine("실행 파일이 없습니다. [6]으로 먼저 지정하세요.");
+        Console.WriteLine("실행 파일이 없습니다. [8]으로 먼저 지정하세요.");
         Console.ResetColor();
         return false;
     }
@@ -56,7 +56,7 @@ internal static partial class Program
         }
     }
 
-    private static void RunFullPackage(string workspace, string exe, ErLog log)
+    private static bool RunFullPackage(string workspace, string exe, ErLog log)
     {
         var sessionId = DateTime.Now.ToString("yyyyMMdd_HHmmss");
         log.Info($"패키지 세션 시작 — exe: {exe}, session={sessionId}");
@@ -70,7 +70,7 @@ internal static partial class Program
         if (MineConsoleUi.PromptLine("적용하고 백업을 만듭니다. 계속? (Y/N) : ")?.Trim().ToUpperInvariant() != "Y")
         {
             log.Info("사용자 취소(패키지)");
-            return;
+            return false;
         }
 
         log.Info("boot.config: 패키지에 포함하여 병합");
@@ -95,9 +95,27 @@ internal static partial class Program
 
         var post = SystemDiagnosisProbe.Collect(exe);
         MineConsoleUi.PrintSystemDiagnosis("적용 후 재진단 (변경·수동 점검)", post);
-        var nvAdapter = post.Adapters.FirstOrDefault(a => a.Name.IndexOf("NVIDIA", StringComparison.OrdinalIgnoreCase) >= 0);
-        var gfeInfo = nvAdapter != null ? NvidiaGfeDriverLookup.TryGetLatestGeForceDriverInfo(nvAdapter) : null;
-        MineConsoleUi.PrintAdapterDriversAndNotes(post, gfeInfo);
+
+        Console.WriteLine();
+        MineConsoleUi.PrintAdditionalDiagnosticsOffer(workspace);
+        if (MineConsoleUi.PromptLine("추가 진단을 진행하시겠습니까? (Y/N) : ")?.Trim().ToUpperInvariant() == "Y")
+        {
+            var diagSid = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            var rep = PostApplyDiagnosticService.Run(exe, sessionId,
+                (msg, pct) => MineConsoleUi.WriteDiagnosticProgress(msg, pct));
+            Console.WriteLine();
+            MineConsoleUi.ClearDiagnosticProgressLine();
+            MineConsoleUi.PrintPostApplyDiagnosticSummary(rep);
+            var logsDir = Path.Combine(workspace, "logs");
+            DiagnosticResultWriter.Save(logsDir, diagSid, rep);
+            log.Info($"추가 진단 저장: diagnostic_{diagSid}.log, diagnostic_result_{diagSid}.json");
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine($" 저장: {MineConsoleUi.Shorten(Path.Combine(logsDir, $"diagnostic_{diagSid}.log"), 68)}");
+            Console.WriteLine($" JSON: {MineConsoleUi.Shorten(Path.Combine(logsDir, $"diagnostic_result_{diagSid}.json"), 68)}");
+            Console.ResetColor();
+        }
+
+        return true;
     }
 
     private static void RunBootConfigOnly(string workspace, string exe, ErLog log)
